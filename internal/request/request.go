@@ -62,7 +62,7 @@ type RequestLine struct {
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	request := Request{
+	request := &Request{
 		State: Initialized,
 	}
 	buf := make([]byte, bufferSize)
@@ -77,13 +77,13 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			}
 			return &Request{}, err
 		}
-		if idx+n >= len(buf) {
+		idx += n
+		if idx >= len(buf) {
 			b := make([]byte, len(buf)*2)
 			copy(b, buf)
 			buf = b
 		}
 
-		idx += n
 		n, err = request.parse(buf[:idx])
 		if err != nil {
 			return &Request{}, err
@@ -93,7 +93,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			idx -= n
 		}
 	}
-	return &request, nil
+	return request, nil
 }
 
 func parseRequestLine(request string) (int, RequestLine, error) {
