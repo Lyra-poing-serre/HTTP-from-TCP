@@ -10,12 +10,14 @@ import (
 type ParseState int
 
 const CRLF = "\r\n"
+
 const (
 	GET    = "GET"
 	POST   = "POST"
 	DELETE = "DELETE"
 	PUT    = "PUT"
 )
+
 const (
 	Initialized ParseState = iota
 	Done
@@ -31,14 +33,19 @@ type Request struct {
 func (r *Request) parse(data []byte) (int, error) {
 	switch r.State {
 	case Initialized:
-		n, reqLine, err := parseRequestLine(string(data))
+		reqLine, _, ok := strings.Cut(string(data), CRLF)
+		if !ok {
+			return 0, nil
+		}
+
+		n, requestLine, err := parseRequestLine(reqLine)
 		if err != nil {
 			return n, err
 		}
 		if n == 0 {
 			return 0, nil
 		}
-		r.RequestLine = reqLine
+		r.RequestLine = requestLine
 		r.State = Done
 		return n, nil
 	case Done:
@@ -62,12 +69,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	idx := 0
 
 	for request.State != Done {
-		if idx >= len(buf) {
-			b := make([]byte, len(buf)*2)
-			copy(b, buf)
-			buf = b
-		}
-		n, err := reader.Read(buf)
+		n, err := reader.Read(buf[idx:])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				request.State = Done
@@ -75,46 +77,50 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			}
 			return &Request{}, err
 		}
-		idx += n
+		if idx+n >= len(buf) {
+			b := make([]byte, len(buf)*2)
+			copy(b, buf)
+			buf = b
+		}
 
-		n, err = request.parse(buf)
+		idx += n
+		n, err = request.parse(buf[:idx])
 		if err != nil {
 			return &Request{}, err
 		}
-		copy(make([]byte, bufferSize), buf)
-		idx -= n
-	}
-	_, err := request.parse(buf)
-	if err != nil {
-		return &Request{}, err
+		if n > 0 {
+			copy(buf[:idx], make([]byte, bufferSize))
+			idx -= n
+		}
 	}
 	return &request, nil
 }
 
 func parseRequestLine(request string) (int, RequestLine, error) {
-	req := strings.Split(request, CRLF)
-	// bytes.Index(data, []byte(CRLF))  // get first index
-	if len(req) == 1 {
-		return 0, RequestLine{}, nil
-	}
-	n := len(req)
+	n := len(request)
+	parts := strings.Split(request, " ")
 
-	reqLine := strings.Split(req[0], " ")
-	if len(reqLine) < 3 {
-		return 0, RequestLine{}, fmt.Errorf("bad request-line format: %s", request)
+	if len(parts) != 3 {
+		return 0, RequestLine{}, fmt.Errorf(
+			"bad request-line format: %s",
+			request,
+		)
 	}
-	method := reqLine[0]
+	method := parts[0]
 	if method != GET && method != POST && method != PUT && method != DELETE {
 		return 0, RequestLine{}, fmt.Errorf("invalid method: %s", method)
 	}
-	target := reqLine[1]
-	http, ver, ok := strings.Cut(reqLine[2], "/")
+	target := parts[1]
+	http, ver, ok := strings.Cut(parts[2], "/")
 	if !ok {
-		return 0, RequestLine{}, fmt.Errorf("HTTP version not found: %s", reqLine[2])
+		return 0, RequestLine{}, fmt.Errorf(
+			"HTTP version not found: %s",
+			parts[2],
+		)
 	} else if http != "HTTP" {
-		return 0, RequestLine{}, fmt.Errorf("unrecognized HTTP version: %s", reqLine[2])
+		return 0, RequestLine{}, fmt.Errorf("unrecognized HTTP version: %s", parts[2])
 	} else if ver != "1.1" {
-		return 0, RequestLine{}, fmt.Errorf("only support HTTP/1.1: %s", reqLine[2])
+		return 0, RequestLine{}, fmt.Errorf("only support HTTP/1.1: %s", parts[2])
 	}
 
 	return n, RequestLine{
