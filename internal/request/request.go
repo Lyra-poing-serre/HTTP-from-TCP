@@ -19,8 +19,8 @@ const (
 )
 
 const (
-	Initialized ParseState = iota
-	Done
+	parseInitialized ParseState = iota
+	parseDone
 )
 
 const bufferSize = 8
@@ -32,7 +32,7 @@ type Request struct {
 
 func (r *Request) parse(data []byte) (int, error) {
 	switch r.State {
-	case Initialized:
+	case parseInitialized:
 		reqLine, _, ok := strings.Cut(string(data), CRLF)
 		if !ok {
 			return 0, nil
@@ -46,9 +46,9 @@ func (r *Request) parse(data []byte) (int, error) {
 			return 0, nil
 		}
 		r.RequestLine = requestLine
-		r.State = Done
+		r.State = parseDone
 		return n, nil
-	case Done:
+	case parseDone:
 		return 0, errors.New("trying to read data in a done state")
 	default:
 		return 0, errors.New("unknown state")
@@ -63,16 +63,16 @@ type RequestLine struct {
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	request := &Request{
-		State: Initialized,
+		State: parseInitialized,
 	}
 	buf := make([]byte, bufferSize)
 	idx := 0
 
-	for request.State != Done {
+	for request.State != parseDone {
 		n, err := reader.Read(buf[idx:])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				request.State = Done
+				request.State = parseDone
 				break
 			}
 			return &Request{}, err
