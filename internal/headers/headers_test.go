@@ -14,7 +14,7 @@ func TestHeadersParse(t *testing.T) {
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, 23, n)
 	assert.False(t, done)
 
@@ -25,7 +25,7 @@ func TestHeadersParse(t *testing.T) {
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "https://google.com:69", headers["Ghost"])
+	assert.Equal(t, "https://google.com:69", headers["ghost"])
 	assert.Equal(t, len(example), n)
 	assert.False(t, done)
 
@@ -36,7 +36,7 @@ func TestHeadersParse(t *testing.T) {
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, len(example), n)
 	assert.False(t, done)
 
@@ -48,21 +48,21 @@ func TestHeadersParse(t *testing.T) {
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "https://google.com:69", headers["Ghost"])
+	assert.Equal(t, "https://google.com:69", headers["ghost"])
 	assert.Equal(t, len(example), n)
 	assert.False(t, done)
 	data = data[n:]
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "https://google.com:69", headers["Ghost"])
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "https://google.com:69", headers["ghost"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.False(t, done)
 	_, done, err = headers.Parse(data[n:])
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "https://google.com:69", headers["Ghost"])
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "https://google.com:69", headers["ghost"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.True(t, done)
 
 	// Test: Invalid spacing header
@@ -77,6 +77,14 @@ func TestHeadersParse(t *testing.T) {
 	example = "Host: localhost :42069\r\n"
 	headers = NewHeaders()
 	data = []byte(example + "\r\n")
+	n, done, err = headers.Parse(data)
+	require.Error(t, err)
+	assert.Equal(t, 0, n)
+	assert.False(t, done)
+
+	// Test: Invalid field-name header
+	headers = NewHeaders()
+	data = []byte("H@st: localhost:42069\r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.Error(t, err)
 	assert.Equal(t, 0, n)
