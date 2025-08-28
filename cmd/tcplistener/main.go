@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	request "github.com/Lyra-poing-serre/HTTP-from-TCP/internal/request"
+	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/request"
 )
 
 func main() {
