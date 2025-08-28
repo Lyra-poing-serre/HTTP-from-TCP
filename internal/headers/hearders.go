@@ -64,11 +64,18 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	} else if value[valIdx-1] == ' ' || value[valIdx+1] == ' ' {
 		return 0, false, fmt.Errorf("malformed headers, no OWS next to ':' permitted: %s", value)
 	}
-	h[key] = fmt.Sprintf(
+
+	value = fmt.Sprintf(
 		"%s%s",
 		strings.TrimSpace(value[:valIdx]),
 		strings.TrimSpace(value[valIdx:]),
 	)
+	_, exist := h[key]
+	if !exist {
+		h[key] = value
+	} else {
+		h[key] += fmt.Sprintf(", %s", value)
+	}
 	return len(strData) + len(CRLF), false, nil
 }
 

@@ -58,11 +58,57 @@ func TestHeadersParse(t *testing.T) {
 	assert.Equal(t, "https://google.com:69", headers["ghost"])
 	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.False(t, done)
-	_, done, err = headers.Parse(data[n:])
+	data = data[n:]
+	_, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
 	assert.Equal(t, "https://google.com:69", headers["ghost"])
 	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.True(t, done)
+
+	// Test: Valid single header with multiple values
+	example = "Set-Host: https://www.boot.dev:12345;\r\n"
+	ex = "Set-Host: https://google.com:69;\r\n"
+	e := "Set-Host: localhost:42069;\r\n"
+	headers = NewHeaders()
+	data = []byte(example + ex + e + "\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "https://www.boot.dev:12345;", headers["set-host"])
+	assert.Equal(t, len(example), n)
+	assert.False(t, done)
+	data = data[n:]
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(
+		t,
+		"https://www.boot.dev:12345;, https://google.com:69;",
+		headers["set-host"],
+	)
+	assert.Equal(t, len(ex), n)
+	assert.False(t, done)
+	data = data[n:]
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(
+		t,
+		"https://www.boot.dev:12345;, https://google.com:69;, localhost:42069;",
+		headers["set-host"],
+	)
+	assert.Equal(t, len(e), n)
+	assert.False(t, done)
+	data = data[n:]
+	_, done, err = headers.Parse(data)
+	assert.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(
+		t,
+		"https://www.boot.dev:12345;, https://google.com:69;, localhost:42069;",
+		headers["set-host"],
+	)
 	assert.True(t, done)
 
 	// Test: Invalid spacing header
