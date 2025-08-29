@@ -63,7 +63,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		return 0, false, err
 	}
 
-	return crlfIdx + len(CRLF), false, nil
+	return crlfIdx + 2, false, nil
 }
 
 func (h Headers) Set(key, value string) error {
@@ -89,7 +89,6 @@ func (h Headers) Set(key, value string) error {
 	} else {
 		h[key] += fmt.Sprintf(", %s", value)
 	}
-	fmt.Printf("current key: %s -> %s\n", key, value)
 	return nil
 }
 

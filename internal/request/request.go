@@ -62,29 +62,19 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		n, err := reader.Read(buf[idx:])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				if request.State != parseDone {
-					fmt.Println(
-						request.State,
-						request.RequestLine,
-						request.Headers,
-					)
-					return nil, errors.New("incomplete request")
-				}
+				request.State = parseDone
 				break
 			}
 			return nil, err
 		}
 		idx += n
-		fmt.Printf("parsing func: %s\n", buf[:idx])
 		n, err = request.parse(buf[:idx])
 		if err != nil {
-			fmt.Printf("got an parsing error : %s", err.Error())
 			return nil, err
 		}
 		copy(buf, buf[n:])
 		idx -= n
 	}
-	fmt.Println("! done !\n", request.RequestLine, "\n", request.Headers)
 	return request, nil
 }
 
@@ -100,7 +90,6 @@ func (r *Request) parse(data []byte) (int, error) {
 		}
 		r.RequestLine = *requestLine
 		r.State = parseHeaders
-		fmt.Printf("Request-Line is done !\n")
 		return n, nil
 	case parseHeaders: // Faire une nouvelle func pour parse 1 fois; request-line sera fait en une fois mais header a besoin de plus de call
 		n, done, err := r.Headers.Parse(data)
@@ -111,7 +100,6 @@ func (r *Request) parse(data []byte) (int, error) {
 			return 0, nil
 		}
 		if done {
-			fmt.Println("IM DONE !!!!!")
 			r.State = parseDone
 		}
 		return n, nil

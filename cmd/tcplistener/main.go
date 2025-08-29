@@ -34,7 +34,7 @@ func main() {
 		r, err := request.RequestFromReader(con)
 		if err != nil {
 			log.Printf(
-				"an error occured while parsing the reqeust: %s\n",
+				"an error occured while parsing the request: %s\n",
 				err.Error(),
 			)
 			return
@@ -43,6 +43,10 @@ func main() {
 		fmt.Printf("Request line:\n- Method: %s\n", r.RequestLine.Method)
 		fmt.Printf("- Target: %s\n", r.RequestLine.RequestTarget)
 		fmt.Printf("- Version: %s\n", r.RequestLine.HttpVersion)
+		fmt.Println("Headers:")
+		for k, v := range r.Headers {
+			fmt.Printf("- %s: %s\n", k, v)
+		}
 
 		fmt.Println("The connection has been closed.")
 	}
