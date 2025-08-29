@@ -1,7 +1,6 @@
 package request
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -76,8 +75,43 @@ func TestHeadersParse(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 3,
 	}
-	fmt.Printf("New request with: %s\n", reader.data)
 	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "localhost:42069", r.Headers["host"])
+	assert.Equal(t, "curl/7.81.0", r.Headers["user-agent"])
+	assert.Equal(t, "*/*", r.Headers["accept"])
+	assert.Equal(t, parseDone, r.State)
+
+	// Test: Empty Header
+	reader = &chunkReader{
+		data:            "GET / HTTP/1.1\r\n\r\n",
+		numBytesPerRead: 1,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "GET", r.RequestLine.Method)
+	assert.Equal(t, "/", r.RequestLine.RequestTarget)
+	assert.Equal(t, "1.1", r.RequestLine.HttpVersion)
+	assert.Equal(t, 0, len(r.Headers))
+
+	// Test: Duplicate Header
+	reader = &chunkReader{
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nHost: https://www.boot.dev\r\n\r\n",
+		numBytesPerRead: 6,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "localhost:42069, https://www.boot.dev", r.Headers["host"])
+
+	// Test: Case Insensitive Header
+	reader = &chunkReader{
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUSER-AGENT: curl/7.81.0\r\naccept: */*\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	assert.Equal(t, "localhost:42069", r.Headers["host"])
@@ -87,6 +121,14 @@ func TestHeadersParse(t *testing.T) {
 	// Test: Malformed Header
 	reader = &chunkReader{
 		data:            "GET / HTTP/1.1\r\nHost localhost:42069\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	_, err = RequestFromReader(reader)
+	require.Error(t, err)
+
+	// Test: Missing End of Header
+	reader = &chunkReader{
+		data:            "GET / HTTP/1.1\r\nHost localhost:42069\r\n",
 		numBytesPerRead: 3,
 	}
 	_, err = RequestFromReader(reader)

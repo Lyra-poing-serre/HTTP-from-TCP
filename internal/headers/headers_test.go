@@ -67,7 +67,7 @@ func TestHeadersParse(t *testing.T) {
 	assert.True(t, done)
 
 	// Test: Valid single header with multiple values
-	example = "Set-Host: https://www.boot.dev:12345;\r\n"
+	example = "Set-Host: https://www.boot.dev;\r\n"
 	ex = "Set-Host: https://google.com:69;\r\n"
 	e := "Set-Host: localhost:42069;\r\n"
 	headers = NewHeaders()
@@ -75,7 +75,7 @@ func TestHeadersParse(t *testing.T) {
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "https://www.boot.dev:12345;", headers["set-host"])
+	assert.Equal(t, "https://www.boot.dev;", headers["set-host"])
 	assert.Equal(t, len(example), n)
 	assert.False(t, done)
 	data = data[n:]
@@ -84,7 +84,7 @@ func TestHeadersParse(t *testing.T) {
 	require.NotNil(t, headers)
 	assert.Equal(
 		t,
-		"https://www.boot.dev:12345;, https://google.com:69;",
+		"https://www.boot.dev;, https://google.com:69;",
 		headers["set-host"],
 	)
 	assert.Equal(t, len(ex), n)
@@ -95,7 +95,7 @@ func TestHeadersParse(t *testing.T) {
 	require.NotNil(t, headers)
 	assert.Equal(
 		t,
-		"https://www.boot.dev:12345;, https://google.com:69;, localhost:42069;",
+		"https://www.boot.dev;, https://google.com:69;, localhost:42069;",
 		headers["set-host"],
 	)
 	assert.Equal(t, len(e), n)
@@ -106,7 +106,7 @@ func TestHeadersParse(t *testing.T) {
 	require.NotNil(t, headers)
 	assert.Equal(
 		t,
-		"https://www.boot.dev:12345;, https://google.com:69;, localhost:42069;",
+		"https://www.boot.dev;, https://google.com:69;, localhost:42069;",
 		headers["set-host"],
 	)
 	assert.True(t, done)

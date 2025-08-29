@@ -63,6 +63,11 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				if request.State != parseDone {
+					fmt.Println(
+						request.State,
+						request.RequestLine,
+						request.Headers,
+					)
 					return nil, errors.New("incomplete request")
 				}
 				break
@@ -80,7 +85,6 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		idx -= n
 	}
 	fmt.Println("! done !\n", request.RequestLine, "\n", request.Headers)
-	fmt.Printf("\n\nNEW TEST !\n")
 	return request, nil
 }
 
@@ -107,6 +111,7 @@ func (r *Request) parse(data []byte) (int, error) {
 			return 0, nil
 		}
 		if done {
+			fmt.Println("IM DONE !!!!!")
 			r.State = parseDone
 		}
 		return n, nil
