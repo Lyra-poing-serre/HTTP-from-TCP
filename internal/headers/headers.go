@@ -1,6 +1,7 @@
 package headers
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"unicode"
@@ -29,8 +30,7 @@ var allowedSpecialChars = map[rune]struct{}{ // ty Boots
 const CRLF = "\r\n"
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
-	strData := string(data)
-	crlfIdx := strings.Index(strData, CRLF)
+	crlfIdx := bytes.Index(data, []byte(CRLF))
 	if crlfIdx == -1 {
 		return 0, false, nil
 	}
@@ -38,7 +38,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		return len(data), true, nil
 	}
 
-	strData = strData[:crlfIdx]
+	strData := string(data)[:crlfIdx]
 	keyIdx := strings.Index(strData, ":")
 	if keyIdx == -1 {
 		return 0, false, fmt.Errorf("headers key not found: %s", strData)

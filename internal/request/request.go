@@ -1,10 +1,13 @@
 package request
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/headers"
 )
 
 type ParseState int
@@ -20,6 +23,7 @@ const (
 
 const (
 	parseInitialized ParseState = iota
+	parseHeaders
 	parseDone
 )
 
@@ -28,31 +32,7 @@ const bufferSize = 8
 type Request struct {
 	RequestLine RequestLine
 	State       ParseState
-}
-
-func (r *Request) parse(data []byte) (int, error) {
-	switch r.State {
-	case parseInitialized:
-		reqLine, _, ok := strings.Cut(string(data), CRLF)
-		if !ok {
-			return 0, nil
-		}
-
-		n, requestLine, err := parseRequestLine(reqLine)
-		if err != nil {
-			return n, err
-		}
-		if n == 0 {
-			return 0, nil
-		}
-		r.RequestLine = requestLine
-		r.State = parseDone
-		return n, nil
-	case parseDone:
-		return 0, errors.New("trying to read data in a done state")
-	default:
-		return 0, errors.New("unknown state")
-	}
+	Headers     headers.Headers
 }
 
 type RequestLine struct {
@@ -63,13 +43,20 @@ type RequestLine struct {
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	request := &Request{
-		State: parseInitialized,
+		State:   parseInitialized,
+		Headers: headers.NewHeaders(),
 	}
 	buf := make([]byte, bufferSize)
 	idx := 0
 
 	for request.State != parseDone {
+		if idx >= len(buf) {
+			b := make([]byte, len(buf)*2)
+			copy(b, buf)
+			buf = b
+		}
 		n, err := reader.Read(buf[idx:])
+		fmt.Printf("current request: %s\n", string(buf[idx:]))
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				request.State = parseDone
@@ -78,12 +65,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			return &Request{}, err
 		}
 		idx += n
-		if idx >= len(buf) {
-			b := make([]byte, len(buf)*2)
-			copy(b, buf)
-			buf = b
-		}
-
+		fmt.Printf("HEADERS GOT: %s\n", buf[:idx])
 		n, err = request.parse(buf[:idx])
 		if err != nil {
 			return &Request{}, err
@@ -93,37 +75,79 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			idx -= n
 		}
 	}
+	fmt.Println("! done !\n", request.RequestLine, "\n", request.Headers)
+	fmt.Printf("\n\nNEW TEST !\n")
 	return request, nil
 }
 
-func parseRequestLine(request string) (int, RequestLine, error) {
-	n := len(request)
-	parts := strings.Split(request, " ")
+func (r *Request) parse(data []byte) (int, error) {
+	switch r.State {
+	case parseInitialized:
+		n, requestLine, err := parseRequestLine(data)
+		if err != nil {
+			return n, err
+		}
+		if n == 0 {
+			return 0, nil
+		}
+		r.RequestLine = *requestLine
+		r.State = parseHeaders
+		return n, nil
+	case parseHeaders: // Faire une nouvelle func pour parse 1 fois; request-line sera fait en une fois mais header a besoin de plus de call
+		n, done, err := r.Headers.Parse(data)
+		if err != nil {
+			return n, err
+		}
+		if !done {
+			r.State = parseDone
+		}
+		return n, nil
+	case parseDone:
+		return 0, errors.New("trying to read data in a done state")
+	default:
+		return 0, errors.New("unknown state")
+	}
+}
 
+func parseRequestLine(data []byte) (int, *RequestLine, error) {
+	idx := bytes.Index(data, []byte(CRLF))
+	if idx == -1 {
+		return 0, nil, nil
+	}
+	requestLineText := string(data[:idx])
+	requestLine, err := requestLineFromString(requestLineText)
+	if err != nil {
+		return 0, nil, err
+	}
+	return idx + 2, requestLine, nil
+}
+
+func requestLineFromString(request string) (*RequestLine, error) {
+	parts := strings.Split(request, " ")
 	if len(parts) != 3 {
-		return 0, RequestLine{}, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"bad request-line format: %s",
 			request,
 		)
 	}
 	method := parts[0]
 	if method != GET && method != POST && method != PUT && method != DELETE {
-		return 0, RequestLine{}, fmt.Errorf("invalid method: %s", method)
+		return nil, fmt.Errorf("invalid method: %s", method)
 	}
 	target := parts[1]
 	http, ver, ok := strings.Cut(parts[2], "/")
 	if !ok {
-		return 0, RequestLine{}, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"HTTP version not found: %s",
 			parts[2],
 		)
 	} else if http != "HTTP" {
-		return 0, RequestLine{}, fmt.Errorf("unrecognized HTTP version: %s", parts[2])
+		return nil, fmt.Errorf("unrecognized HTTP version: %s", parts[2])
 	} else if ver != "1.1" {
-		return 0, RequestLine{}, fmt.Errorf("only support HTTP/1.1: %s", parts[2])
+		return nil, fmt.Errorf("only support HTTP/1.1: %s", parts[2])
 	}
 
-	return n, RequestLine{
+	return &RequestLine{
 		Method:        method,
 		RequestTarget: target,
 		HttpVersion:   ver,
