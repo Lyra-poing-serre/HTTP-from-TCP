@@ -42,7 +42,7 @@ func TestHeadersParse(t *testing.T) {
 
 	// Test: Valid double headers with a done check
 	example = "Ghost: https://google.com:69\r\n"
-	ex := "Host: localhost:42069\r\n"
+	ex := "Set-Person: lane-loves-go;\r\n"
 	headers = NewHeaders()
 	data = []byte(example + ex + "\r\n")
 	n, done, err = headers.Parse(data)
@@ -56,14 +56,14 @@ func TestHeadersParse(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, headers)
 	assert.Equal(t, "https://google.com:69", headers["ghost"])
-	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "lane-loves-go;", headers["set-person"])
 	assert.False(t, done)
 	data = data[n:]
 	_, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
 	assert.Equal(t, "https://google.com:69", headers["ghost"])
-	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "lane-loves-go;", headers["set-person"])
 	assert.True(t, done)
 
 	// Test: Valid single header with multiple values

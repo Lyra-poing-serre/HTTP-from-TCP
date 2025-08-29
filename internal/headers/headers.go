@@ -9,6 +9,10 @@ import (
 
 type Headers map[string]string
 
+func NewHeaders() Headers {
+	return Headers{}
+}
+
 var allowedSpecialChars = map[rune]struct{}{ // ty Boots
 	'!':  {},
 	'#':  {},
@@ -35,7 +39,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		return 0, false, nil
 	}
 	if crlfIdx == 0 {
-		return len(data), true, nil
+		return 2, true, nil
 	}
 
 	strData := string(data)[:crlfIdx]
@@ -45,6 +49,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	} else if strData[keyIdx-1] == ' ' {
 		return 0, false, fmt.Errorf("malformed headers, no OWS next to ':' permitted: %s", strData[:keyIdx])
 	}
+
 	key := strings.ToLower(strings.TrimSpace(strData[:keyIdx]))
 	for _, r := range key {
 		if !unicode.IsNumber(r) &&
@@ -53,35 +58,39 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 			return 0, false, fmt.Errorf("invalid field-name: %s", key)
 		}
 	}
-	value := strData[keyIdx+1:]
-
-	valIdx := strings.LastIndex(value, ":")
-	if valIdx == -1 {
-		return 0, false, fmt.Errorf(
-			"headers value not found: %s",
-			strData[keyIdx:],
-		)
-	} else if value[valIdx-1] == ' ' || value[valIdx+1] == ' ' {
-		return 0, false, fmt.Errorf("malformed headers, no OWS next to ':' permitted: %s", value)
+	err = h.Set(key, strData[keyIdx+1:])
+	if err != nil {
+		return 0, false, err
 	}
 
-	value = fmt.Sprintf(
-		"%s%s",
-		strings.TrimSpace(value[:valIdx]),
-		strings.TrimSpace(value[valIdx:]),
-	)
+	return crlfIdx + len(CRLF), false, nil
+}
+
+func (h Headers) Set(key, value string) error {
+	valIdx := strings.LastIndex(value, ":")
+	if valIdx != -1 {
+		if value[valIdx-1] == ' ' || value[valIdx+1] == ' ' {
+			return fmt.Errorf(
+				"malformed headers, no OWS next to ':' permitted: %s",
+				value,
+			)
+		}
+		value = fmt.Sprintf(
+			"%s%s",
+			strings.TrimSpace(value[:valIdx]),
+			strings.TrimSpace(value[valIdx:]),
+		)
+	} else {
+		value = strings.TrimSpace(value)
+	}
 	_, exist := h[key]
 	if !exist {
 		h[key] = value
 	} else {
 		h[key] += fmt.Sprintf(", %s", value)
 	}
-	fmt.Printf("current key: %s -> %s", h[key], h)
-	return crlfIdx + len(CRLF), false, nil
-}
-
-func NewHeaders() Headers {
-	return Headers{}
+	fmt.Printf("current key: %s -> %s\n", key, value)
+	return nil
 }
 
 func isAllowedSpecialChar(r rune) bool {

@@ -60,7 +60,6 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			buf = b
 		}
 		n, err := reader.Read(buf[idx:])
-		fmt.Printf("current request: %s\n", buf[idx:])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				if request.State != parseDone {
@@ -97,7 +96,7 @@ func (r *Request) parse(data []byte) (int, error) {
 		}
 		r.RequestLine = *requestLine
 		r.State = parseHeaders
-		fmt.Printf("Request-Line is done !")
+		fmt.Printf("Request-Line is done !\n")
 		return n, nil
 	case parseHeaders: // Faire une nouvelle func pour parse 1 fois; request-line sera fait en une fois mais header a besoin de plus de call
 		n, done, err := r.Headers.Parse(data)
