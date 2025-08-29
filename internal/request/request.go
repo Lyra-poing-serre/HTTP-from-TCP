@@ -35,6 +35,13 @@ type Request struct {
 	Headers     headers.Headers
 }
 
+func NewRequest() *Request {
+	return &Request{
+		State:   parseInitialized,
+		Headers: headers.NewHeaders(),
+	}
+}
+
 type RequestLine struct {
 	HttpVersion   string
 	RequestTarget string
@@ -42,10 +49,7 @@ type RequestLine struct {
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	request := &Request{
-		State:   parseInitialized,
-		Headers: headers.NewHeaders(),
-	}
+	request := NewRequest()
 	buf := make([]byte, bufferSize)
 	idx := 0
 
@@ -56,24 +60,25 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			buf = b
 		}
 		n, err := reader.Read(buf[idx:])
-		fmt.Printf("current request: %s\n", string(buf[idx:]))
+		fmt.Printf("current request: %s\n", buf[idx:])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				request.State = parseDone
+				if request.State != parseDone {
+					return nil, errors.New("incomplete request")
+				}
 				break
 			}
-			return &Request{}, err
+			return nil, err
 		}
 		idx += n
-		fmt.Printf("HEADERS GOT: %s\n", buf[:idx])
+		fmt.Printf("parsing func: %s\n", buf[:idx])
 		n, err = request.parse(buf[:idx])
 		if err != nil {
-			return &Request{}, err
+			fmt.Printf("got an parsing error : %s", err.Error())
+			return nil, err
 		}
-		if n > 0 {
-			copy(buf[:idx], make([]byte, bufferSize))
-			idx -= n
-		}
+		copy(buf, buf[n:])
+		idx -= n
 	}
 	fmt.Println("! done !\n", request.RequestLine, "\n", request.Headers)
 	fmt.Printf("\n\nNEW TEST !\n")
@@ -92,13 +97,17 @@ func (r *Request) parse(data []byte) (int, error) {
 		}
 		r.RequestLine = *requestLine
 		r.State = parseHeaders
+		fmt.Printf("Request-Line is done !")
 		return n, nil
 	case parseHeaders: // Faire une nouvelle func pour parse 1 fois; request-line sera fait en une fois mais header a besoin de plus de call
 		n, done, err := r.Headers.Parse(data)
 		if err != nil {
 			return n, err
 		}
-		if !done {
+		if n == 0 {
+			return 0, nil
+		}
+		if done {
 			r.State = parseDone
 		}
 		return n, nil

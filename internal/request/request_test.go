@@ -1,6 +1,7 @@
 package request
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -75,6 +76,7 @@ func TestHeadersParse(t *testing.T) {
 		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 3,
 	}
+	fmt.Printf("New request with: %s\n", reader.data)
 	r, err := RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)

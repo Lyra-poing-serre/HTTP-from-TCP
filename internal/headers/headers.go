@@ -76,7 +76,8 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	} else {
 		h[key] += fmt.Sprintf(", %s", value)
 	}
-	return len(strData) + len(CRLF), false, nil
+	fmt.Printf("current key: %s -> %s", h[key], h)
+	return crlfIdx + len(CRLF), false, nil
 }
 
 func NewHeaders() Headers {
