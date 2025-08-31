@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"unicode"
+
+	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/tools"
 )
 
 type Headers map[string]string
@@ -13,28 +14,8 @@ func NewHeaders() Headers {
 	return Headers{}
 }
 
-var allowedSpecialChars = map[rune]struct{}{ // ty Boots
-	'!':  {},
-	'#':  {},
-	'$':  {},
-	'%':  {},
-	'&':  {},
-	'\'': {}, // Note the escaping for the single quote
-	'*':  {},
-	'+':  {},
-	'-':  {},
-	'.':  {},
-	'^':  {},
-	'_':  {},
-	'`':  {},
-	'|':  {},
-	'~':  {},
-}
-
-const CRLF = "\r\n"
-
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
-	crlfIdx := bytes.Index(data, []byte(CRLF))
+	crlfIdx := bytes.Index(data, []byte(tools.CRLF))
 	if crlfIdx == -1 {
 		return 0, false, nil
 	}
@@ -52,9 +33,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 
 	key := strings.ToLower(strings.TrimSpace(strData[:keyIdx]))
 	for _, r := range key {
-		if !unicode.IsNumber(r) &&
-			!unicode.IsLetter(r) &&
-			!isAllowedSpecialChar(r) {
+		if tools.IsForbiddenChar(r) {
 			return 0, false, fmt.Errorf("invalid field-name: %s", key)
 		}
 	}
@@ -92,7 +71,10 @@ func (h Headers) Set(key, value string) error {
 	return nil
 }
 
-func isAllowedSpecialChar(r rune) bool {
-	_, exist := allowedSpecialChars[r]
-	return exist
+func (h Headers) Get(key string) (string, error) {
+	v, ok := h[strings.ToLower(key)]
+	if !ok {
+		return "", fmt.Errorf("key %s not found in headers", key)
+	}
+	return v, nil
 }

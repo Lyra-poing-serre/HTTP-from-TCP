@@ -8,11 +8,10 @@ import (
 	"strings"
 
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/headers"
+	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/tools"
 )
 
 type ParseState int
-
-const CRLF = "\r\n"
 
 const (
 	GET    = "GET"
@@ -24,6 +23,7 @@ const (
 const (
 	parseInitialized ParseState = iota
 	parseHeaders
+	parseBody
 	parseDone
 )
 
@@ -33,6 +33,7 @@ type Request struct {
 	RequestLine RequestLine
 	State       ParseState
 	Headers     headers.Headers
+	Body        []byte
 }
 
 func NewRequest() *Request {
@@ -91,7 +92,7 @@ func (r *Request) parse(data []byte) (int, error) {
 		r.RequestLine = *requestLine
 		r.State = parseHeaders
 		return n, nil
-	case parseHeaders: // Faire une nouvelle func pour parse 1 fois; request-line sera fait en une fois mais header a besoin de plus de call
+	case parseHeaders:
 		n, done, err := r.Headers.Parse(data)
 		if err != nil {
 			return n, err
@@ -100,9 +101,12 @@ func (r *Request) parse(data []byte) (int, error) {
 			return 0, nil
 		}
 		if done {
-			r.State = parseDone
+			r.State = parseBody
 		}
 		return n, nil
+	case parseBody:
+
+		return 0, nil
 	case parseDone:
 		return 0, errors.New("trying to read data in a done state")
 	default:
@@ -111,7 +115,7 @@ func (r *Request) parse(data []byte) (int, error) {
 }
 
 func parseRequestLine(data []byte) (int, *RequestLine, error) {
-	idx := bytes.Index(data, []byte(CRLF))
+	idx := bytes.Index(data, []byte(tools.CRLF))
 	if idx == -1 {
 		return 0, nil, nil
 	}

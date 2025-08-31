@@ -6,12 +6,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/tools"
 )
 
 func TestRequestLineParse(t *testing.T) {
-	reader := &chunkReader{
-		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 3,
+	reader := &tools.ChunkReader{
+		Data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		NumBytesPerRead: 3,
 	}
 	r, err := RequestFromReader(reader)
 	require.NoError(t, err)
@@ -21,9 +23,9 @@ func TestRequestLineParse(t *testing.T) {
 	assert.Equal(t, "1.1", r.RequestLine.HttpVersion)
 
 	// Test: Good GET Request line with path
-	reader = &chunkReader{
-		data:            "GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 1,
+	reader = &tools.ChunkReader{
+		Data:            "GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		NumBytesPerRead: 1,
 	}
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
@@ -33,9 +35,9 @@ func TestRequestLineParse(t *testing.T) {
 	assert.Equal(t, "1.1", r.RequestLine.HttpVersion)
 
 	// Good POST Request
-	reader = &chunkReader{
-		data:            "POST /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 4,
+	reader = &tools.ChunkReader{
+		Data:            "POST /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		NumBytesPerRead: 4,
 	}
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
@@ -71,9 +73,9 @@ func TestRequestLineParse(t *testing.T) {
 
 func TestHeadersParse(t *testing.T) {
 	// Test: Standard Headers
-	reader := &chunkReader{
-		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 4,
+	reader := &tools.ChunkReader{
+		Data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		NumBytesPerRead: 4,
 	}
 	r, err := RequestFromReader(reader)
 	require.NoError(t, err)
@@ -84,9 +86,9 @@ func TestHeadersParse(t *testing.T) {
 	assert.Equal(t, parseDone, r.State)
 
 	// Test: Empty Header
-	reader = &chunkReader{
-		data:            "GET / HTTP/1.1\r\n\r\n",
-		numBytesPerRead: 1,
+	reader = &tools.ChunkReader{
+		Data:            "GET / HTTP/1.1\r\n\r\n",
+		NumBytesPerRead: 1,
 	}
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
@@ -97,9 +99,9 @@ func TestHeadersParse(t *testing.T) {
 	assert.Equal(t, 0, len(r.Headers))
 
 	// Test: Duplicate Header
-	reader = &chunkReader{
-		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nHost: https://www.boot.dev\r\n\r\n",
-		numBytesPerRead: 6,
+	reader = &tools.ChunkReader{
+		Data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nHost: https://www.boot.dev\r\n\r\n",
+		NumBytesPerRead: 6,
 	}
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
@@ -107,9 +109,9 @@ func TestHeadersParse(t *testing.T) {
 	assert.Equal(t, "localhost:42069, https://www.boot.dev", r.Headers["host"])
 
 	// Test: Case Insensitive Header
-	reader = &chunkReader{
-		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUSER-AGENT: curl/7.81.0\r\naccept: */*\r\n\r\n",
-		numBytesPerRead: 3,
+	reader = &tools.ChunkReader{
+		Data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUSER-AGENT: curl/7.81.0\r\naccept: */*\r\n\r\n",
+		NumBytesPerRead: 3,
 	}
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
@@ -119,17 +121,45 @@ func TestHeadersParse(t *testing.T) {
 	assert.Equal(t, "*/*", r.Headers["accept"])
 
 	// Test: Malformed Header
-	reader = &chunkReader{
-		data:            "GET / HTTP/1.1\r\nHost localhost:42069\r\n\r\n",
-		numBytesPerRead: 3,
+	reader = &tools.ChunkReader{
+		Data:            "GET / HTTP/1.1\r\nHost localhost:42069\r\n\r\n",
+		NumBytesPerRead: 3,
 	}
 	_, err = RequestFromReader(reader)
 	require.Error(t, err)
 
 	// Test: Missing End of Header
-	reader = &chunkReader{
-		data:            "GET / HTTP/1.1\r\nHost localhost:42069\r\n",
-		numBytesPerRead: 3,
+	reader = &tools.ChunkReader{
+		Data:            "GET / HTTP/1.1\r\nHost localhost:42069\r\n",
+		NumBytesPerRead: 3,
+	}
+	_, err = RequestFromReader(reader)
+	require.Error(t, err)
+}
+
+func TestBodyParse(t *testing.T) {
+	// Test: Standard Body
+	reader := &tools.ChunkReader{
+		Data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Content-Length: 13\r\n" +
+			"\r\n" +
+			"hello world!\n",
+		NumBytesPerRead: 3,
+	}
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "hello world!\n", string(r.Body))
+
+	// Test: Body shorter than reported content length
+	reader = &tools.ChunkReader{
+		Data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Content-Length: 20\r\n" +
+			"\r\n" +
+			"partial content",
+		NumBytesPerRead: 3,
 	}
 	_, err = RequestFromReader(reader)
 	require.Error(t, err)
