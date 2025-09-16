@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/headers"
@@ -63,6 +64,20 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		n, err := reader.Read(buf[idx:])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
+				n, err := request.Headers.Get("content-length")
+				if err != nil {
+					request.State = parseDone
+					break
+				}
+				l, err := strconv.Atoi(n)
+				if err != nil {
+					return nil, err
+				}
+				if l != len(request.Body) {
+					return nil, errors.New(
+						"content-length is not the length of the body",
+					)
+				}
 				request.State = parseDone
 				break
 			}
@@ -105,8 +120,8 @@ func (r *Request) parse(data []byte) (int, error) {
 		}
 		return n, nil
 	case parseBody:
-
-		return 0, nil
+		r.Body = append(r.Body, data...)
+		return len(data), nil
 	case parseDone:
 		return 0, errors.New("trying to read data in a done state")
 	default:
