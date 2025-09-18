@@ -1,4 +1,4 @@
-package main
+ackage main
 
 import (
 	"fmt"
@@ -47,6 +47,8 @@ func main() {
 		for k, v := range r.Headers {
 			fmt.Printf("- %s: %s\n", k, v)
 		}
+		fmt.Println("Body:")
+		fmt.Println(string(r.Body))
 
 		fmt.Println("The connection has been closed.")
 	}
