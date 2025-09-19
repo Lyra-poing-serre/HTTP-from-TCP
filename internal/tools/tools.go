@@ -7,6 +7,8 @@ import (
 
 const CRLF = "\r\n"
 
+type StatusCode int
+
 type ChunkReader struct {
 	Data            string
 	NumBytesPerRead int

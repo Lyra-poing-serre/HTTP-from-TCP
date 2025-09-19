@@ -6,6 +6,8 @@ import (
 	"net"
 	"strconv"
 	"sync/atomic"
+
+	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/response"
 )
 
 type Server struct {
@@ -13,8 +15,6 @@ type Server struct {
 	Listener net.Listener
 	IsClosed atomic.Bool
 }
-
-const response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello World!"
 
 func Serve(port int) (*Server, error) {
 	l, err := net.Listen("tcp", ":"+strconv.Itoa(port))
@@ -43,6 +43,7 @@ func (s *Server) Close() error {
 func (s *Server) listen() {
 	for !s.IsClosed.Load() {
 		conn, err := s.Listener.Accept()
+		fmt.Println("New connection !")
 		if err != nil && !s.IsClosed.Load() {
 			fmt.Println(err)
 			break
@@ -54,8 +55,16 @@ func (s *Server) listen() {
 }
 
 func (s *Server) handle(conn net.Conn) {
-	_, err := conn.Write([]byte(response))
+	defer conn.Close()
+	err := response.WriteStatusLine(conn, response.StatusOK)
 	if err != nil {
-		fmt.Printf("an error occured when writing response: %s", err.Error())
+		fmt.Println(err)
+		return
+	}
+	h := response.GetDefaultHeaders(0)
+	err = response.WriteHeaders(conn, h)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 }
