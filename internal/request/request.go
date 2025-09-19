@@ -41,6 +41,7 @@ func NewRequest() *Request {
 	return &Request{
 		State:   parseInitialized,
 		Headers: headers.NewHeaders(),
+		Body:    make([]byte, 0),
 	}
 }
 
@@ -56,6 +57,18 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	idx := 0
 
 	for request.State != parseDone {
+		if idx > 0 {
+			consumed, err := request.parse(buf[:idx])
+			if err != nil {
+				return nil, err
+			}
+			if consumed > 0 {
+				copy(buf, buf[consumed:])
+				idx -= consumed
+				continue // Continue the loop without reading more data
+			}
+		}
+
 		if idx >= len(buf) {
 			b := make([]byte, len(buf)*2)
 			copy(b, buf)
@@ -63,7 +76,18 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		}
 		n, err := reader.Read(buf[idx:])
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			readErr := err
+
+			if idx > 0 {
+				consumed, parseErr := request.parse(buf[:idx])
+				if parseErr != nil {
+					return nil, parseErr
+				}
+				copy(buf, buf[consumed:])
+				idx -= consumed
+			}
+
+			if errors.Is(readErr, io.EOF) {
 				n, err := request.Headers.Get("content-length")
 				if err != nil {
 					request.State = parseDone
@@ -81,7 +105,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 				request.State = parseDone
 				break
 			}
-			return nil, err
+			return nil, readErr
 		}
 		idx += n
 		n, err = request.parse(buf[:idx])
@@ -116,6 +140,11 @@ func (r *Request) parse(data []byte) (int, error) {
 			return 0, nil
 		}
 		if done {
+			_, err := r.Headers.Get("content-length")
+			if err != nil {
+				r.State = parseDone
+				return n, nil
+			}
 			r.State = parseBody
 		}
 		return n, nil

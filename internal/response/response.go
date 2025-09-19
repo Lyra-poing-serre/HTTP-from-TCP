@@ -72,7 +72,6 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
 func WriteHeaders(w io.Writer, headers headers.Headers) error {
 	b := []byte{}
 	for k, v := range headers {
-		// Title case sur la clés...
 		b = fmt.Appendf(b, "%s: %s%s", k, v, tools.CRLF)
 	}
 	b = append(b, tools.CRLF...)

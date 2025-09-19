@@ -163,7 +163,7 @@ func TestBodyParse(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	require.Nil(t, r.Body)
+	assert.Equal(t, 0, len(r.Body))
 
 	// Test: Empty Body
 	reader = &tools.ChunkReader{
@@ -176,7 +176,7 @@ func TestBodyParse(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	require.Nil(t, r.Body)
+	assert.Equal(t, 0, len(r.Body))
 
 	// Test: Body without Content-Length
 	reader = &tools.ChunkReader{
@@ -189,7 +189,7 @@ func TestBodyParse(t *testing.T) {
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	assert.Equal(t, "hello world\n", string(r.Body))
+	assert.Equal(t, "", string(r.Body))
 
 	// Test: Body longer than reported content length
 	reader = &tools.ChunkReader{
