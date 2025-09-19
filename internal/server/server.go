@@ -71,9 +71,7 @@ func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 	buf := bytes.NewBuffer([]byte{})
 
-	fmt.Println("pre parsing")
 	req, err := request.RequestFromReader(conn)
-	fmt.Println("post parsing")
 	if err != nil {
 		e := HandlerError{
 			StatusCode: response.StatusBadRequest,
@@ -82,10 +80,12 @@ func (s *Server) handle(conn net.Conn) {
 		e.writeError(conn)
 		return
 	}
+	req.Print()
+	defer fmt.Println(
+		"Server processed the request.\nWaiting another connection...",
+	)
 
-	fmt.Println("pre handler")
 	e := s.HandlerFunc(buf, req)
-	fmt.Println("post handler")
 	if e != nil {
 		e.writeError(conn)
 		return
@@ -126,7 +126,6 @@ func (e *HandlerError) writeError(w io.Writer) {
 		fmt.Println(err)
 		return
 	}
-	w.Write([]byte("\r\n"))
 	_, err = w.Write([]byte(e.Message))
 	if err != nil {
 		fmt.Println(err)

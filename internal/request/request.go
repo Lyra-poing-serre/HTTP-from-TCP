@@ -202,3 +202,15 @@ func requestLineFromString(request string) (*RequestLine, error) {
 		HttpVersion:   ver,
 	}, nil
 }
+
+func (r *Request) Print() {
+	fmt.Printf("Request line:\n- Method: %s\n", r.RequestLine.Method)
+	fmt.Printf("- Target: %s\n", r.RequestLine.RequestTarget)
+	fmt.Printf("- Version: %s\n", r.RequestLine.HttpVersion)
+	fmt.Println("Headers:")
+	for k, v := range r.Headers {
+		fmt.Printf("- %s: %s\n", k, v)
+	}
+	fmt.Println("Body:")
+	fmt.Println(string(r.Body))
+}
