@@ -1,12 +1,17 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
+	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/headers"
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/request"
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/response"
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/server"
@@ -45,48 +50,70 @@ const (
 </html>`
 )
 
+const chunkSize int = 32
+
 func main() {
 	server, err := server.Serve(
 		port,
 		func(w response.Writer, req *request.Request) {
-			switch req.RequestLine.RequestTarget {
-			case "/yourproblem":
-				err := w.WriteStatusLine(response.StatusBadRequest)
+			if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin") {
+				// ctx timeout todo
+				chHttpbin := make(chan []byte)
+				target := fmt.Sprintf(
+					"%s%s",
+					"https://httpbin.org",
+					strings.TrimPrefix(
+						req.RequestLine.RequestTarget,
+						"/httpbin",
+					),
+				)
+				go func() {
+					resp, err := http.Get(target)
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+					defer close(chHttpbin)
+					defer resp.Body.Close()
+					for {
+						b := make([]byte, chunkSize)
+						n, err := resp.Body.Read(b)
+						if n > 0 {
+							chHttpbin <- b[:n]
+						}
+						if errors.Is(err, io.EOF) {
+							return
+						}
+					}
+				}()
+
+				err := w.WriteStatusLine(response.StatusOK)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
-				h := response.GetDefaultHeaders(len(badRequestHTML))
+				h := headers.NewHeaders()
+				h.Set("Content-Type", "application/json")
+				h.Set("Transfer-Encoding", "chunked")
 				err = w.WriteHeaders(h)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
-				_, err = w.WriteBody([]byte(badRequestHTML))
+				for chunk := range chHttpbin {
+					_, err = w.WriteChunkedBody(chunk)
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+				}
+				_, err = w.WriteChunkedBodyDone()
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
 				return
-			case "/myproblem":
-				err := w.WriteStatusLine(response.StatusInternalServerError)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				h := response.GetDefaultHeaders(len(internalServerError))
-				err = w.WriteHeaders(h)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				_, err = w.WriteBody([]byte(internalServerError))
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				return
-			default:
+			} else {
 				err := w.WriteStatusLine(response.StatusOK)
 				if err != nil {
 					fmt.Println(err)

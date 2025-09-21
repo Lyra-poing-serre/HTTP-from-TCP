@@ -134,8 +134,6 @@ func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 		}
 		total += n
 	}
-	n, err := w.WriteChunkedBodyDone()
-	total += n
 	return total, err
 }
 
