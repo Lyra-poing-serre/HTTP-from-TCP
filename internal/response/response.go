@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/headers"
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/tools"
@@ -25,7 +26,6 @@ const (
 	WriterStatusLine tools.WriterState = 0
 	WriterHeaders    tools.WriterState = 1
 	WriterBoby       tools.WriterState = 2
-	ChunkSize        int               = 512
 )
 
 type Writer struct {
@@ -114,7 +114,7 @@ func (w *Writer) WriteBody(p []byte) (int, error) {
 func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 	var total int
 	var err error
-	chunkSize := ChunkSize
+	chunkSize := tools.ChunkSize
 
 	for chunkSize > len(p) {
 		chunkSize /= 2
@@ -139,6 +139,34 @@ func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 
 func (w *Writer) WriteChunkedBodyDone() (int, error) {
 	return w.WriteBody(
-		fmt.Appendf([]byte{}, "%X%s%s", 0, tools.CRLF, tools.CRLF),
+		fmt.Appendf([]byte{}, "%X%s", 0, tools.CRLF),
 	)
+}
+
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	trailers, ok := h["Trailer"]
+	if !ok {
+		return fmt.Errorf("key %s not found in headers", "Trailers")
+	}
+	for trailer := range strings.SplitSeq(trailers, ", ") {
+		v, ok := h[trailer]
+		if !ok {
+			fmt.Printf("value of trailer '%s' not found", trailer)
+			continue
+		}
+
+		fmt.Printf("%s: %s%s", trailer, v, tools.CRLF)
+		_, err := w.WriteBody(
+			fmt.Appendf([]byte{}, "%s: %s%s", trailer, v, tools.CRLF),
+		)
+		if err != nil {
+			fmt.Printf(
+				"trailer '%s' - couldn't write the value: %v",
+				trailer, v,
+			)
+			continue
+		}
+	}
+	w.WriteBody([]byte(tools.CRLF))
+	return nil
 }

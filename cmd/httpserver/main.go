@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -15,6 +18,7 @@ import (
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/request"
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/response"
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/server"
+	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/tools"
 )
 
 const (
@@ -50,8 +54,6 @@ const (
 </html>`
 )
 
-const chunkSize int = 32
-
 func main() {
 	server, err := server.Serve(
 		port,
@@ -76,7 +78,7 @@ func main() {
 					defer close(chHttpbin)
 					defer resp.Body.Close()
 					for {
-						b := make([]byte, chunkSize)
+						b := make([]byte, tools.ChunkSize)
 						n, err := resp.Body.Read(b)
 						if n > 0 {
 							chHttpbin <- b[:n]
@@ -95,12 +97,17 @@ func main() {
 				h := headers.NewHeaders()
 				h.Set("Content-Type", "application/json")
 				h.Set("Transfer-Encoding", "chunked")
+				h.Set("Trailer", "X-Content-SHA256")
+				h.Set("Trailer", "X-Content-Length")
 				err = w.WriteHeaders(h)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
+
+				body := []byte{}
 				for chunk := range chHttpbin {
+					body = append(body, chunk...)
 					_, err = w.WriteChunkedBody(chunk)
 					if err != nil {
 						fmt.Println(err)
@@ -111,6 +118,14 @@ func main() {
 				if err != nil {
 					fmt.Println(err)
 					return
+				}
+
+				sum := sha256.Sum256(body)
+				h.Set("X-Content-SHA256", hex.EncodeToString(sum[:]))
+				h.Set("X-Content-Length", strconv.Itoa(len(body)))
+				err = w.WriteTrailers(h)
+				if err != nil {
+					fmt.Println(err)
 				}
 				return
 			} else {

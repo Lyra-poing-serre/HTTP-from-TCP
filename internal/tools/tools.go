@@ -7,6 +7,8 @@ import (
 
 const CRLF = "\r\n"
 
+const ChunkSize int = 1024
+
 type (
 	StatusCode  int
 	WriterState int
