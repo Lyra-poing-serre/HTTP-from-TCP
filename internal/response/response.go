@@ -25,6 +25,7 @@ const (
 	WriterStatusLine tools.WriterState = 0
 	WriterHeaders    tools.WriterState = 1
 	WriterBoby       tools.WriterState = 2
+	ChunkSize        int               = 512
 )
 
 type Writer struct {
@@ -108,4 +109,38 @@ func (w *Writer) WriteBody(p []byte) (int, error) {
 		return 0, errors.New("writer not in body states")
 	}
 	return w.Write(p)
+}
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	var total int
+	var err error
+	chunkSize := ChunkSize
+
+	for chunkSize > len(p) {
+		chunkSize /= 2
+	}
+
+	for i := 0; len(p) > i; i = i + chunkSize {
+		var n int
+		idx := min(i+chunkSize, len(p))
+		buf := []byte{}
+		buf = fmt.Appendf(
+			buf, "%X%s%s%s",
+			len(p[i:idx]), tools.CRLF, p[i:idx], tools.CRLF,
+		)
+		n, err = w.WriteBody(buf)
+		if err != nil {
+			return total, err
+		}
+		total += n
+	}
+	n, err := w.WriteChunkedBodyDone()
+	total += n
+	return total, err
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	return w.WriteBody(
+		fmt.Appendf([]byte{}, "%X%s%s", 0, tools.CRLF, tools.CRLF),
+	)
 }
