@@ -1,9 +1,7 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"strconv"
@@ -11,7 +9,6 @@ import (
 
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/request"
 	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/response"
-	"github.com/Lyra-poing-serre/HTTP-from-TCP/internal/tools"
 )
 
 type Server struct {
@@ -21,12 +18,12 @@ type Server struct {
 	HandlerFunc Handler
 }
 
-type Handler func(w io.Writer, req *request.Request) *HandlerError
+type Handler func(w response.Writer, req *request.Request)
 
-type HandlerError struct {
-	StatusCode tools.StatusCode
-	Message    string
-}
+// type HandlerError struct {
+// 	StatusCode tools.StatusCode
+// 	Message    string
+// }
 
 func Serve(port int, h Handler) (*Server, error) {
 	l, err := net.Listen("tcp", ":"+strconv.Itoa(port))
@@ -69,15 +66,13 @@ func (s *Server) listen() {
 
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
-	buf := bytes.NewBuffer([]byte{})
+	responseWriter := response.Writer{
+		Connection: conn,
+	}
 
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
-		e := HandlerError{
-			StatusCode: response.StatusBadRequest,
-			Message:    err.Error(),
-		}
-		e.writeError(conn)
+		fmt.Println(err)
 		return
 	}
 	req.Print()
@@ -85,50 +80,5 @@ func (s *Server) handle(conn net.Conn) {
 		"Server processed the request.\nWaiting another connection...",
 	)
 
-	e := s.HandlerFunc(buf, req)
-	if e != nil {
-		e.writeError(conn)
-		return
-	}
-
-	body := buf.Bytes()
-	err = response.WriteStatusLine(conn, response.StatusOK)
-	if err != nil {
-		e := HandlerError{
-			StatusCode: response.StatusInternalServerError,
-			Message:    err.Error(),
-		}
-		e.writeError(conn)
-		return
-	}
-	h := response.GetDefaultHeaders(len(body))
-	err = response.WriteHeaders(conn, h)
-	if err != nil {
-		e := HandlerError{
-			StatusCode: response.StatusInternalServerError,
-			Message:    err.Error(),
-		}
-		e.writeError(conn)
-		return
-	}
-	conn.Write(body)
-}
-
-func (e *HandlerError) writeError(w io.Writer) {
-	err := response.WriteStatusLine(w, e.StatusCode)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	h := response.GetDefaultHeaders(len(e.Message))
-	err = response.WriteHeaders(w, h)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	_, err = w.Write([]byte(e.Message))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	s.HandlerFunc(responseWriter, req)
 }

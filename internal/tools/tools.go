@@ -7,7 +7,10 @@ import (
 
 const CRLF = "\r\n"
 
-type StatusCode int
+type (
+	StatusCode  int
+	WriterState int
+)
 
 type ChunkReader struct {
 	Data            string
